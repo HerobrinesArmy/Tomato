@@ -98,6 +98,8 @@ namespace Tomato
             return length;
         }
 
+        bool breakpointHandled = false;
+
         public void Execute(int CyclesToExecute)
         {
             if (!IsRunning && CyclesToExecute != -1)
@@ -115,25 +117,41 @@ namespace Tomato
                     {
                         if (breakpoint.Address == PC)
                         {
-                            BreakpointEventArgs bea = new BreakpointEventArgs(breakpoint);
-                            BreakpointHit(this, bea);
-                            if (!bea.ContinueExecution)
-                                return;
+                            if (breakpointHandled || (CyclesToExecute == -1))
+                            {
+                                breakpointHandled = false;
+                            }
+                            else
+                            {
+                                BreakpointEventArgs bea = new BreakpointEventArgs(breakpoint);
+                                BreakpointHit(this, bea);
+                                if (!bea.ContinueExecution)
+                                {
+                                    breakpointHandled = true;
+                                    return;
+                                }
+                            }
                             break;
                         }
                     }
                 }
                 if (IsOnFire)
                     Memory[Random.Next(0xFFFF)] = (ushort)Random.Next(0xFFFF);
-                if (!InterruptQueueEnabled && InterruptQueue.Count > 0)
-                    FireInterrupt(InterruptQueue.Dequeue());
+                if (!InterruptQueueEnabled && InterruptQueue.Count > 0 && IA != 0)
+                {
+                    Memory[--SP] = PC;
+                    Memory[--SP] = A;
+                    PC = IA;
+                    A = InterruptQueue.Dequeue();
+                    InterruptQueueEnabled = true;
+                }
 
                 ushort PCBeforeExecution = PC;
                 ushort instruction = Memory[PC++];
                 byte opcode = (byte)(instruction & 0x1F);
                 byte valueB = (byte)((instruction & 0x3E0) >> 5);
                 byte valueA = (byte)((instruction & 0xFC00) >> 10);
-                ushort result, opA = 0, opB = 0;
+                ushort opA = 0, opB = 0;
                 opA = Get(valueA);
                 if (opcode != 0)
                 {
@@ -159,7 +177,7 @@ namespace Tomato
                                     break;
                                 case 0x08: // INT a
                                     Cycles -= 3;
-                                    FireInterrupt(opA);
+                                    InterruptQueue.Enqueue(opA);
                                     break;
                                 case 0x09: // IAG a
                                     Set(valueA, IA);
@@ -342,7 +360,7 @@ namespace Tomato
                                 SkipIfChain();
                             break;
                         case 0x17: // IFU b, a
-                            Cycles += 2;
+                            Cycles -= 2;
                             Get(valueB);
                             if (!(opB_s < opA_s))
                                 SkipIfChain();
@@ -409,23 +427,9 @@ namespace Tomato
 
         public void FireInterrupt(ushort Message)
         {
-            if (InterruptQueueEnabled)
-            {
-                InterruptQueue.Enqueue(Message);
-                if (InterruptQueue.Count > 0xFF)
-                    IsOnFire = true;
-            }
-            else
-            {
-                if (IA != 0)
-                {
-                    Memory[--SP] = PC;
-                    Memory[--SP] = A;
-                    PC = IA;
-                    A = Message;
-                    InterruptQueueEnabled = true;
-                }
-            }
+            InterruptQueue.Enqueue(Message);
+            if (InterruptQueue.Count > 0xFF)
+                IsOnFire = true;
         }
 
         public void ConnectDevice(Device Device)

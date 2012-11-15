@@ -94,17 +94,10 @@ namespace Lettuce
                 stepOverEnabled = false;
                 return;
             }
-            if (breakpointHandled)
-            {
-                breakpointHandled = false;
-                e.ContinueExecution = true;
-                return;
-            }
+            
             (sender as DCPU).IsRunning = false;
             ResetLayout();
-            breakpointHandled = true;
         }
-        bool breakpointHandled = false;
 
         public static string GetHexString(uint value, int numDigits)
         {
@@ -582,7 +575,7 @@ namespace Lettuce
 
         private void checkBoxInterruptQueue_CheckedChanged(object sender, EventArgs e)
         {
-            CPU.InterruptQueueEnabled = !CPU.InterruptQueueEnabled;
+            CPU.InterruptQueueEnabled = checkBoxInterruptQueue.Checked;
             ResetLayout();
         }
         
