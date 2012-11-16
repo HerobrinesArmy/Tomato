@@ -106,10 +106,13 @@ namespace Tomato
                 return;
             int oldCycles = Cycles;
             if (CyclesToExecute == -1)
-                Cycles = 1;
+                Cycles += 1;
             else
+            {
+                oldCycles = 0;
                 Cycles += CyclesToExecute;
-            while (Cycles > 0)
+            }
+            while (Cycles > oldCycles)
             {
                 if (BreakpointHit != null)
                 {
@@ -404,8 +407,6 @@ namespace Tomato
                     }
                 }
             }
-            if (CyclesToExecute == -1)
-                Cycles = oldCycles;
         }
 
         private void SkipIfChain()
