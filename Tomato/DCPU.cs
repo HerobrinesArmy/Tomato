@@ -114,6 +114,15 @@ namespace Tomato
             }
             while (Cycles > oldCycles)
             {
+                if (!InterruptQueueEnabled && InterruptQueue.Count > 0 && IA != 0)
+                {
+                    Memory[--SP] = PC;
+                    Memory[--SP] = A;
+                    PC = IA;
+                    A = InterruptQueue.Dequeue();
+                    InterruptQueueEnabled = true;
+                }
+
                 if (BreakpointHit != null)
                 {
                     foreach (var breakpoint in Breakpoints)
@@ -140,14 +149,6 @@ namespace Tomato
                 }
                 if (IsOnFire)
                     Memory[Random.Next(0xFFFF)] = (ushort)Random.Next(0xFFFF);
-                if (!InterruptQueueEnabled && InterruptQueue.Count > 0 && IA != 0)
-                {
-                    Memory[--SP] = PC;
-                    Memory[--SP] = A;
-                    PC = IA;
-                    A = InterruptQueue.Dequeue();
-                    InterruptQueueEnabled = true;
-                }
 
                 ushort PCBeforeExecution = PC;
                 ushort instruction = Memory[PC++];

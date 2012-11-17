@@ -167,6 +167,13 @@ namespace Tomato.Hardware
                     int wordsToWrite = wordsPerTick;
                     if (wordsToWrite + wordsWritten > wordsPerSector)
                         wordsToWrite = wordsPerSector - wordsWritten;
+                    if ((wordsToWrite + fromAddress > Disk.Length) || (wordsToWrite + toAddress > AttachedCPU.Memory.Length))
+                    {
+                        LastError = M35FDErrorCode.ERROR_BROKEN;
+                        DeviceState = M35FDStateCode.STATE_READY;
+                        isReading = false;
+                        return;
+                    }
                     Array.Copy(Disk, fromAddress, AttachedCPU.Memory, toAddress, wordsToWrite);
                     toAddress += wordsPerTick;
                     wordsWritten += wordsPerTick;
@@ -188,6 +195,13 @@ namespace Tomato.Hardware
                     int wordsToWrite = wordsPerTick;
                     if (wordsToWrite + wordsWritten > wordsPerSector)
                         wordsToWrite = wordsPerSector - wordsWritten;
+                    if ((wordsToWrite + toAddress > Disk.Length) || (wordsToWrite + fromAddress > AttachedCPU.Memory.Length))
+                    {
+                        LastError = M35FDErrorCode.ERROR_BROKEN;
+                        DeviceState = M35FDStateCode.STATE_READY;
+                        isWriting = false;
+                        return;
+                    }
                     Array.Copy(AttachedCPU.Memory, fromAddress, Disk, toAddress, wordsToWrite);
                     toAddress += wordsPerTick;
                     wordsWritten += wordsPerTick;
@@ -228,7 +242,17 @@ namespace Tomato.Hardware
 
         public override void Reset()
         {
-            
+            isReading = false;
+            isWriting = false;
+            if (DeviceState == M35FDStateCode.STATE_BUSY)
+            {
+                if (Writable)
+                    DeviceState = M35FDStateCode.STATE_READY;
+                else
+                    DeviceState = M35FDStateCode.STATE_READY_WP;
+            }
+            LastError = M35FDErrorCode.ERROR_NONE;
+            InterruptMessage = 0;
         }
     }
 
