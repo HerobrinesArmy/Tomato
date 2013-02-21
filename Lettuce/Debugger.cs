@@ -126,17 +126,9 @@ namespace Lettuce
                 stepOverEnabled = false;
                 return;
             }
-            if (breakpointHandled)
-            {
-                breakpointHandled = false;
-                e.ContinueExecution = true;
-                return;
-            }
             (sender as DCPU).IsRunning = false;
             ResetLayout();
-            breakpointHandled = true;
         }
-        bool breakpointHandled = false;
 
         public static string GetHexString(uint value, int numDigits)
         {
@@ -527,20 +519,12 @@ namespace Lettuce
             foreach (var _line in lines)
             {
                 string line = _line;
-                if (line.Trim().Length == 0)
+                if (line.Trim().Length == 0 || line.StartsWith(";"))
                     continue;
-                line = line.Substring(line.IndexOf(')')).Trim();
-                line = line.Substring(line.IndexOf(' ')).Trim();
                 string addressText = line.Remove(line.IndexOf(']'));
                 addressText = addressText.Substring(line.IndexOf('[') + 3).Trim();
-                ushort address = 0;
-                if (addressText != "NOLIST")
-                    address = ushort.Parse(addressText, NumberStyles.HexNumber);
-                if (line.Substring(line.IndexOf(" ")).Trim().StartsWith("ERROR"))
-                    continue;
-                if (line.Substring(line.IndexOf(" ")).Trim().StartsWith("WARNING"))
-                    continue;
-                line = line.Substring(line.IndexOf("  ")).Trim();
+                ushort address = ushort.Parse(addressText, NumberStyles.HexNumber);
+                line = line.Substring(line.IndexOf(']') + 1).Trim();
                 if (line.SafeContains(':'))
                 {
                     if (line.Contains(' '))
@@ -551,7 +535,7 @@ namespace Lettuce
                 }
                 else
                 {
-                    if (!_line.Contains("                      ") && !line.ToLower().StartsWith(".")) // .dat directive stuff
+                    if (!line.StartsWith(".") && !line.StartsWith("#")) // preprocessor directives
                     {
                         if (!KnownCode.ContainsKey(address))
                             KnownCode.Add(address, line);

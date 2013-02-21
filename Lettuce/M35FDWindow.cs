@@ -88,6 +88,8 @@ namespace Lettuce
             DiskImages.RemoveAt(listBox1.SelectedIndex);
             if (ReloadImages != null)
                 ReloadImages(this, null);
+            removeButton.Enabled = insertDiskButton.Enabled = writeProtectedCheckBox.Enabled = bigEndianCheckBox.Enabled = saveSelectedDiskButton.Enabled = false;
+            listBox1.SelectedIndex = -1;
         }
 
         private void browseButton_Click(object sender, EventArgs e)
@@ -98,18 +100,18 @@ namespace Lettuce
                 return;
             using (Stream stream = File.Open(ofd.FileName, FileMode.Open))
             {
-                if (stream.Length != 1474560)
-                {
-                    MessageBox.Show("Disk image must be exactly 737,280 words long (1,474,560 bytes).");
-                    return;
-                }
                 ushort[] data = new ushort[737280];
                 byte[] temp = new byte[2];
-                for (int i = 0; i < data.Length; i++)
+                for (int i = 0; i < Math.Min((stream.Length / 2), data.Length); i++)
                 {
                     stream.Read(temp, 0, 2);
                     data[i] = BitConverter.ToUInt16(temp, 0);
                 }
+                for (int i = ((int)stream.Length / 2) + 1; i < data.Length; i++)
+                {
+                    data[i] = 0;
+                }
+
                 AddImage(data, Path.GetFileName(ofd.FileName));
             }
         }

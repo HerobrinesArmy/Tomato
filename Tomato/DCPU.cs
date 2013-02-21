@@ -104,6 +104,8 @@ namespace Tomato
             return length;
         }
 
+        bool breakpointHandled = false;
+
         public void Execute(int CyclesToExecute)
         {
             if (!IsRunning && CyclesToExecute != -1)
@@ -117,18 +119,34 @@ namespace Tomato
             {
                 if (IsOnFire)
                     Memory[Random.Next(0xFFFF)] = (ushort)Random.Next(0xFFFF);
-                if (!InterruptQueueEnabled && InterruptQueue.Count > 0)
-                    FireInterrupt(InterruptQueue.Dequeue());
+                if (!InterruptQueueEnabled && InterruptQueue.Count > 0 && IA != 0)
+                {
+                    Memory[--SP] = PC;
+                    Memory[--SP] = A;
+                    PC = IA;
+                    A = InterruptQueue.Dequeue();
+                    InterruptQueueEnabled = true;
+                }
                 if (BreakpointHit != null)
                 {
                     foreach (var breakpoint in Breakpoints)
                     {
                         if (breakpoint.Address == PC)
                         {
-                            var bea = new BreakpointEventArgs(breakpoint);
-                            BreakpointHit(this, bea);
-                            if (!bea.ContinueExecution)
-                                return;
+                            if (breakpointHandled || (CyclesToExecute == -1))
+                            {
+                                breakpointHandled = false;
+                            }
+                            else
+                            {
+                                var bea = new BreakpointEventArgs(breakpoint);
+                                BreakpointHit(this, bea);
+                                if (!bea.ContinueExecution)
+                                {
+                                    breakpointHandled = true;
+                                    return;
+                                }
+                            }
                             break;
                         }
                     }
@@ -139,7 +157,7 @@ namespace Tomato
                 byte opcode = (byte)(instruction & 0x1F);
                 byte valueB = (byte)((instruction & 0x3E0) >> 5);
                 byte valueA = (byte)((instruction & 0xFC00) >> 10);
-                ushort result, opA = 0, opB = 0;
+                ushort opA = 0, opB = 0;
                 opA = Get(valueA);
                 if (opcode != 0)
                 {
@@ -422,23 +440,9 @@ namespace Tomato
 
         public void FireInterrupt(ushort Message)
         {
-            if (InterruptQueueEnabled)
-            {
-                InterruptQueue.Enqueue(Message);
-                if (InterruptQueue.Count > 0xFF)
-                    IsOnFire = true;
-            }
-            else
-            {
-                if (IA != 0)
-                {
-                    Memory[--SP] = PC;
-                    Memory[--SP] = A;
-                    PC = IA;
-                    A = Message;
-                    InterruptQueueEnabled = true;
-                }
-            }
+            InterruptQueue.Enqueue(Message);
+            if (InterruptQueue.Count > 0xFF)
+                IsOnFire = true;
         }
 
         public void ConnectDevice(Device Device)
