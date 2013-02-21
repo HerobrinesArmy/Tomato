@@ -6,8 +6,13 @@ using Tomato.Hardware;
 
 namespace Tomato
 {
-    public partial class DCPU
+    public class DCPU
     {
+        static DCPU()
+        {
+            Random = new Random();
+        }
+
         public DCPU()
         {
             Devices = new List<Device>();
@@ -16,8 +21,7 @@ namespace Tomato
             Memory = new ushort[0x10000];
             InterruptQueueEnabled = IsOnFire = false;
             IsRunning = true;
-            if (Random == null)
-                Random = new Random();
+            TotalCycles = 0;
         }
 
         public List<Device> Devices;
@@ -38,6 +42,7 @@ namespace Tomato
         }
         public int ClockSpeed = 100000;
         public bool IsRunning;
+        public int TotalCycles { get; private set; }
         /// <summary>
         /// Called when a breakpoint is hit, before it is executed.
         /// </summary>
@@ -80,6 +85,7 @@ namespace Tomato
                 }
             }
         }
+        private object LockObject = new object();
 
         public ushort InstructionLength(ushort address)
         {
@@ -98,64 +104,42 @@ namespace Tomato
             return length;
         }
 
-        bool breakpointHandled = false;
-
         public void Execute(int CyclesToExecute)
         {
             if (!IsRunning && CyclesToExecute != -1)
                 return;
             int oldCycles = Cycles;
             if (CyclesToExecute == -1)
-                Cycles += 1;
+                Cycles = 1;
             else
-            {
-                oldCycles = 0;
                 Cycles += CyclesToExecute;
-            }
-            while (Cycles > oldCycles)
+            while (Cycles > 0)
             {
-                if (!InterruptQueueEnabled && InterruptQueue.Count > 0 && IA != 0)
-                {
-                    Memory[--SP] = PC;
-                    Memory[--SP] = A;
-                    PC = IA;
-                    A = InterruptQueue.Dequeue();
-                    InterruptQueueEnabled = true;
-                }
-
+                if (IsOnFire)
+                    Memory[Random.Next(0xFFFF)] = (ushort)Random.Next(0xFFFF);
+                if (!InterruptQueueEnabled && InterruptQueue.Count > 0)
+                    FireInterrupt(InterruptQueue.Dequeue());
                 if (BreakpointHit != null)
                 {
                     foreach (var breakpoint in Breakpoints)
                     {
                         if (breakpoint.Address == PC)
                         {
-                            if (breakpointHandled || (CyclesToExecute == -1))
-                            {
-                                breakpointHandled = false;
-                            }
-                            else
-                            {
-                                BreakpointEventArgs bea = new BreakpointEventArgs(breakpoint);
-                                BreakpointHit(this, bea);
-                                if (!bea.ContinueExecution)
-                                {
-                                    breakpointHandled = true;
-                                    return;
-                                }
-                            }
+                            var bea = new BreakpointEventArgs(breakpoint);
+                            BreakpointHit(this, bea);
+                            if (!bea.ContinueExecution)
+                                return;
                             break;
                         }
                     }
                 }
-                if (IsOnFire)
-                    Memory[Random.Next(0xFFFF)] = (ushort)Random.Next(0xFFFF);
 
                 ushort PCBeforeExecution = PC;
                 ushort instruction = Memory[PC++];
                 byte opcode = (byte)(instruction & 0x1F);
                 byte valueB = (byte)((instruction & 0x3E0) >> 5);
                 byte valueA = (byte)((instruction & 0xFC00) >> 10);
-                ushort opA = 0, opB = 0;
+                ushort result, opA = 0, opB = 0;
                 opA = Get(valueA);
                 if (opcode != 0)
                 {
@@ -181,7 +165,7 @@ namespace Tomato
                                     break;
                                 case 0x08: // INT a
                                     Cycles -= 3;
-                                    InterruptQueue.Enqueue(opA);
+                                    FireInterrupt(opA);
                                     break;
                                 case 0x09: // IAG a
                                     Set(valueA, IA);
@@ -217,7 +201,7 @@ namespace Tomato
                                 case 0x12: // HWI a
                                     Cycles -= 3;
                                     if (opA < Devices.Count)
-                                        Cycles -= Devices[opA].HandleInterrupt();
+                                        Cycles -= Devices[opA].DoInterrupt();
                                     break;
                                 default:
                                     if (InvalidInstruction != null)
@@ -407,7 +391,16 @@ namespace Tomato
                             break;
                     }
                 }
+                if (!IsRunning && CyclesToExecute != -1)
+                    return;
             }
+            if (CyclesToExecute == -1)
+            {
+                TotalCycles += -(Cycles - 1);
+                Cycles = oldCycles;
+            }
+            else
+                TotalCycles += CyclesToExecute;
         }
 
         private void SkipIfChain()
@@ -429,9 +422,23 @@ namespace Tomato
 
         public void FireInterrupt(ushort Message)
         {
-            InterruptQueue.Enqueue(Message);
-            if (InterruptQueue.Count > 0xFF)
-                IsOnFire = true;
+            if (InterruptQueueEnabled)
+            {
+                InterruptQueue.Enqueue(Message);
+                if (InterruptQueue.Count > 0xFF)
+                    IsOnFire = true;
+            }
+            else
+            {
+                if (IA != 0)
+                {
+                    Memory[--SP] = PC;
+                    Memory[--SP] = A;
+                    PC = IA;
+                    A = Message;
+                    InterruptQueueEnabled = true;
+                }
+            }
         }
 
         public void ConnectDevice(Device Device)
@@ -628,12 +635,25 @@ namespace Tomato
 
         public void Reset()
         {
-            A = B = C = X = Y = Z = I = J = PC = EX = IA = SP = 0;
+            TotalCycles = A = B = C = X = Y = Z = I = J = PC = EX = IA = SP = 0;
             InterruptQueueEnabled = IsOnFire = false;
             InterruptQueue.Clear();
 
             foreach (var device in Devices)
                 device.Reset();
+        }
+
+        public int CalculateCycles(ushort address, ushort length)
+        {
+            int cycles = 0;
+            ushort target = (ushort)(address + length);
+            while (address < target)
+            {
+                ushort instruction = Memory[address];
+
+                address++;
+            }
+            return cycles;
         }
     }
 }

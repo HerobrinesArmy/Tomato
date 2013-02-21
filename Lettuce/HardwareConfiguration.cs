@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
 using System.Drawing;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Windows.Forms;
@@ -30,7 +31,7 @@ namespace Lettuce
         public HardwareConfiguration()
         {
             InitializeComponent();
-            this.StartPosition = FormStartPosition.CenterScreen;
+            StartPosition = FormStartPosition.CenterScreen;
             possibleDevices = new List<Device>();
             foreach (Assembly asm in AppDomain.CurrentDomain.GetAssemblies())
             {
@@ -42,16 +43,72 @@ namespace Lettuce
                 }
             }
             foreach (var device in possibleDevices)
-            {
                 availableListBox.Items.Add(device);
-                if (device.SelectedByDefault)
-                    selectedListBox.Items.Add(device);
+            // Load previous configuration
+            if (!(saveDevicesCheckBox.Checked = LoadSavedDevices()))
+            {
+                selectedListBox.Items.Clear();
+                foreach (var device in possibleDevices)
+                {
+                    if (device.SelectedByDefault)
+                        selectedListBox.Items.Add(device);
+                }
             }
+            DialogResult = DialogResult.Cancel;
+        }
+
+        private bool LoadSavedDevices()
+        {
+            var configPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                ".lettuce", "devices.config");
+            if (!File.Exists(configPath))
+                return false;
+            try
+            {
+                // File config is a simple format, just device IDs in hex delimited by spaces
+                var text = File.ReadAllText(configPath);
+                var parts = text.Split(' ');
+                foreach (var part in parts)
+                {
+                    var device = possibleDevices.FirstOrDefault(d =>
+                        d.DeviceID == int.Parse(part, NumberStyles.HexNumber));
+                    if (device == null)
+                        throw new Exception();
+                    selectedListBox.Items.Add(device);
+                }
+            }
+            catch
+            {
+                return false;
+            }
+            return true;
         }
 
         private void button5_Click(object sender, EventArgs e)
         {
+            DialogResult = DialogResult.OK;
             Close();
+            var configPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                    ".lettuce", "devices.config");
+            if (saveDevicesCheckBox.Checked)
+            {
+                var sb = new StringBuilder();
+                foreach (var _device in selectedListBox.Items)
+                {
+                    var device = _device as Device;
+                    sb.Append(device.DeviceID.ToString("X8") + " ");
+                }
+                if (!Directory.Exists(Path.GetDirectoryName(configPath)))
+                    Directory.CreateDirectory(Path.GetDirectoryName(configPath));
+                var text = sb.ToString();
+                text = text.Remove(text.Length - 1);
+                File.WriteAllText(configPath, text);
+            }
+            else
+            {
+                if (File.Exists(configPath))
+                    File.Delete(configPath);
+            }
         }
 
         private void availableListBox_SelectedIndexChanged(object sender, EventArgs e)

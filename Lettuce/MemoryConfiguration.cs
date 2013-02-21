@@ -13,24 +13,19 @@ namespace Lettuce
     {
         public bool LittleEndian
         {
-            get
-            {
-                return checkBox1.Checked;
-            }
+            get { return checkBox1.Checked; }
         }
 
         public string FileName
         {
-            get
-            {
-                return textBox1.Text;
-            }
+            get { return textBox1.Text; }
         }
 
         public MemoryConfiguration()
         {
             InitializeComponent();
-            this.StartPosition = FormStartPosition.CenterScreen;
+            StartPosition = FormStartPosition.CenterScreen;
+            DialogResult = DialogResult.Cancel;
         }
 
         private void browseButton_Click(object sender, EventArgs e)
@@ -44,17 +39,17 @@ namespace Lettuce
 
         private void button2_Click(object sender, EventArgs e)
         {
-            DialogResult = DialogResult.Cancel;
-            this.Close();
+            DialogResult = DialogResult.Ignore;
+            Close();
         }
 
         private void button1_Click(object sender, EventArgs e)
         {
-            Lettuce.Program.lastbinFilepath = textBox1.Text;
+            Program.lastbinFilepath = textBox1.Text;
 
             DialogResult = DialogResult.OK;
-            this.Close();
-            Lettuce.Program.lastlittleEndian = checkBox1.Checked;
+            Close();
+            Program.lastlittleEndian = checkBox1.Checked;
         }
     }
 }

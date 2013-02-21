@@ -27,6 +27,7 @@ namespace Tomato.Hardware
         {
             rotationTimer = new Timer(UpdateRotation, null, 16, Timeout.Infinite); // Updates at 60 Hz
             EnableFlickering = true;
+            FlickerMultipler = 1;
         }
 
         private Timer rotationTimer;
@@ -71,6 +72,8 @@ namespace Tomato.Hardware
         public event EventHandler VerticiesChanged;
 
         public SPED3State State { get; private set; }
+
+        public double FlickerMultipler { get; set; }
 
         [Category("Device Status")]
         public ushort TargetRotation { get; set; }

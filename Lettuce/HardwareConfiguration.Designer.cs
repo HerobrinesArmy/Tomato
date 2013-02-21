@@ -39,6 +39,7 @@ namespace Lettuce
             this.moveDownButton = new System.Windows.Forms.Button();
             this.button5 = new System.Windows.Forms.Button();
             this.label3 = new System.Windows.Forms.Label();
+            this.saveDevicesCheckBox = new System.Windows.Forms.CheckBox();
             this.SuspendLayout();
             // 
             // label1
@@ -141,12 +142,23 @@ namespace Lettuce
             this.label3.TabIndex = 9;
             this.label3.Text = "Installed Devices";
             // 
+            // saveDevicesCheckBox
+            // 
+            this.saveDevicesCheckBox.AutoSize = true;
+            this.saveDevicesCheckBox.Location = new System.Drawing.Point(457, 198);
+            this.saveDevicesCheckBox.Name = "saveDevicesCheckBox";
+            this.saveDevicesCheckBox.Size = new System.Drawing.Size(77, 17);
+            this.saveDevicesCheckBox.TabIndex = 10;
+            this.saveDevicesCheckBox.Text = "Remember";
+            this.saveDevicesCheckBox.UseVisualStyleBackColor = true;
+            // 
             // HardwareConfiguration
             // 
             this.AcceptButton = this.button5;
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(540, 256);
+            this.Controls.Add(this.saveDevicesCheckBox);
             this.Controls.Add(this.label3);
             this.Controls.Add(this.button5);
             this.Controls.Add(this.moveDownButton);
@@ -180,6 +192,7 @@ namespace Lettuce
         private System.Windows.Forms.Button moveDownButton;
         private System.Windows.Forms.Button button5;
         private System.Windows.Forms.Label label3;
+        private System.Windows.Forms.CheckBox saveDevicesCheckBox;
     }
 }
 

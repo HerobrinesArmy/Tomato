@@ -19,6 +19,9 @@ namespace Lettuce
         public DCPU CPU { get; set; }
         private bool MayUpdateLayout = true;
         public List<Type> DeviceControllers;
+        public List<string> Watches { get; set; }
+
+        private List<bool> InterruptBreakDevices { get; set; }
 
         public const string FUNC_STEP_INTO = "step_into";
         public const string FUNC_STEP_OVER = "step_over";
@@ -32,18 +35,24 @@ namespace Lettuce
                 KnownCode = new Dictionary<ushort, string>();
             if (KnownLabels == null)
                 KnownLabels = new Dictionary<ushort, string>();
-
+            InterruptBreakDevices = new List<bool>();
             FixKeyConfig();
 
-            this.KeyPreview = true;
+            KeyPreview = true;
             this.CPU = CPU;
-            this.CPU.BreakpointHit += new EventHandler<BreakpointEventArgs>(CPU_BreakpointHit);
+            this.CPU.BreakpointHit += this.CPU_BreakpointHit;
             this.CPU.InvalidInstruction += CpuOnInvalidInstruction; 
-            this.rawMemoryDisplay.CPU = this.CPU;
-            this.stackDisplay.CPU = this.CPU;
-            this.disassemblyDisplay1.CPU = this.CPU;
+            rawMemoryDisplay.CPU = this.CPU;
+            stackDisplay.CPU = this.CPU;
+            disassemblyDisplay1.CPU = this.CPU;
+
+            Watches = new List<string>();
             foreach (Device d in CPU.Devices)
+            {
                 listBoxConnectedDevices.Items.Add(d.FriendlyName);
+                InterruptBreakDevices.Add(false);
+                d.InterruptFired += OnDeviceInterrupt;
+            }
             // Load device controllers
             DeviceControllers = new List<Type>();
             foreach (Assembly asm in AppDomain.CurrentDomain.GetAssemblies())
@@ -53,6 +62,17 @@ namespace Lettuce
                 {
                     DeviceControllers.Add(type);
                 }
+            }
+        }
+
+        private void OnDeviceInterrupt(object sender, EventArgs eventArgs)
+        {
+            int index = CPU.Devices.IndexOf(sender as Device);
+            if (InterruptBreakDevices[index])
+            {
+                CPU.IsRunning = false;
+                SetUIWarning("Hardware interrupt fired on device #" + index);
+                ResetLayout();
             }
         }
 
@@ -66,19 +86,31 @@ namespace Lettuce
             }
         }
 
-        private delegate void InvalidInstructionDelegate(InvalidInstructionEventArgs eventArgs);
         void InvalidInstruction(InvalidInstructionEventArgs eventArgs)
         {
             if (InvokeRequired)
-                Invoke(new InvalidInstructionDelegate(InvalidInstruction), eventArgs);
+                Invoke(new Action(() => InvalidInstruction(eventArgs)));
             else
             {
                 pictureBox1.Visible = true;
-                invalidInstructionLabel.Text = "Invalid instruction at 0x" + eventArgs.Address.ToString("X4") +
+                warningLabel.Text = "Invalid instruction at 0x" + eventArgs.Address.ToString("X4") +
                     ": 0x" + eventArgs.Instruction.ToString("X4");
-                invalidInstructionLabel.Visible = true;
+                warningLabel.Visible = true;
                 if (breakOnInvalidInstructionToolStripMenuItem.Checked)
                     ResetLayout();
+            }
+        }
+
+        void SetUIWarning(string text)
+        {
+            if (InvokeRequired)
+                Invoke(new Action(() => SetUIWarning(text)));
+            else
+            {
+                pictureBox1.Visible = true;
+                warningLabel.Text = text;
+                warningLabel.Visible = true;
+                ResetLayout();
             }
         }
 
@@ -86,7 +118,7 @@ namespace Lettuce
         {
             if (stepOverEnabled)
             {
-                CPU.Breakpoints.Remove(CPU.Breakpoints.Where(b => b.Address == CPU.PC).First());
+                CPU.Breakpoints.Remove(CPU.Breakpoints.First(b => b.Address == CPU.PC));
                 e.ContinueExecution = false;
                 (sender as DCPU).IsRunning = false;
                 disassemblyDisplay1.EnableUpdates = true;
@@ -94,20 +126,24 @@ namespace Lettuce
                 stepOverEnabled = false;
                 return;
             }
-            
+            if (breakpointHandled)
+            {
+                breakpointHandled = false;
+                e.ContinueExecution = true;
+                return;
+            }
             (sender as DCPU).IsRunning = false;
             ResetLayout();
+            breakpointHandled = true;
         }
+        bool breakpointHandled = false;
 
         public static string GetHexString(uint value, int numDigits)
         {
-            string result = value.ToString("x").ToUpper();
-            while (result.Length < numDigits)
-                result = "0" + result;
+            string result = value.ToString("X4");
             return result;
         }
 
-        delegate void ResetLayoutDelegate();
         public void ResetLayout()
         {
             if (this.IsDisposed || this.Disposing)
@@ -116,8 +152,7 @@ namespace Lettuce
             {
                 try
                 {
-                    ResetLayoutDelegate rld = new ResetLayoutDelegate(ResetLayout);
-                    this.Invoke(rld);
+                    this.Invoke(new Action(ResetLayout));
                 }
                 catch { }
             }
@@ -126,6 +161,7 @@ namespace Lettuce
                 if (!MayUpdateLayout)
                     return;
                 MayUpdateLayout = false;
+                SuspendLayout();
                 textBoxRegisterA.Text = GetHexString(CPU.A, 4);
                 textBoxRegisterB.Text = GetHexString(CPU.B, 4);
                 textBoxRegisterC.Text = GetHexString(CPU.C, 4);
@@ -142,14 +178,35 @@ namespace Lettuce
                 checkBoxInterruptQueue.Checked = CPU.InterruptQueueEnabled;
                 labelQueuedInterrupts.Text = "Queued Interrupts: " + CPU.InterruptQueue.Count.ToString();
                 checkBoxOnFire.Checked = CPU.IsOnFire;
+                cycleCountLabel.Text = "Cycles: " + CPU.TotalCycles;
                 rawMemoryDisplay.Invalidate();
                 disassemblyDisplay1.Invalidate();
                 propertyGrid1.SelectedObject = propertyGrid1.SelectedObject; // Forces update, intentionally redundant
+                UpdateWatches();
                 if (CPU.IsRunning)
                     DisableAll();
                 else
                     EnableAll();
+                ResumeLayout(true);
                 MayUpdateLayout = true;
+            }
+        }
+
+        private void UpdateWatches()
+        {
+            watchesListView.Items.Clear();
+            foreach (var watch in Watches)
+            {
+                var item = new ListViewItem(watch);
+                try
+                {
+                    item.SubItems.Add("0x" + Watch.Evaluate(watch, CPU).ToString("X4"));
+                }
+                catch (Exception e)
+                {
+                    item.SubItems.Add(e.Message);
+                }
+                watchesListView.Items.Add(item);
             }
         }
 
@@ -199,10 +256,12 @@ namespace Lettuce
 
         private void listBoxConnectedDevices_SelectedIndexChanged(object sender, EventArgs e)
         {
+            checkBoxBreakOnInterrupt.Enabled = (listBoxConnectedDevices.SelectedIndex != -1);
             if (listBoxConnectedDevices.SelectedIndex == -1)
                 return;
             Device selected = CPU.Devices[listBoxConnectedDevices.SelectedIndex];
             propertyGrid1.SelectedObject = selected;
+            checkBoxBreakOnInterrupt.Checked = InterruptBreakDevices[listBoxConnectedDevices.SelectedIndex];
         }
         
         private void listBoxConnectedDevices_MouseDoubleClick(object sender, EventArgs e)
@@ -447,26 +506,12 @@ namespace Lettuce
         {
             if (listBoxConnectedDevices.SelectedIndex == -1)
                 return;
-            Device d = CPU.Devices[listBoxConnectedDevices.SelectedIndex];
             CPU.IsRunning = false;
             ResetLayout();
         }
 
         public static Dictionary<ushort, string> KnownLabels;
         public static Dictionary<ushort, string> KnownCode;
-
-        private void organicToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            // Load organic listing
-            OpenFileDialog ofd = new OpenFileDialog();
-            ofd.Filter = "Listing files (*.lst)|*.lst|Text files (*.txt)|*.txt|All files (*.*)|*.*";
-            ofd.FileName = "";
-            if (ofd.ShowDialog() != DialogResult.OK)
-                return;
-            LoadOrganicListing(ofd.FileName);
-            Lettuce.Program.lastlistingFilepath = ofd.FileName;
-            ResetLayout();
-        }
 
         public static void LoadOrganicListing(string file)
         {
@@ -560,7 +605,7 @@ namespace Lettuce
             foreach (var item in speedToolStripMenuItem.DropDownItems)
                 (item as ToolStripMenuItem).Checked = false;
             (sender as ToolStripMenuItem).Checked = true;
-            ClockSpeedForm csf = new ClockSpeedForm();
+            var csf = new ClockSpeedForm();
             csf.Value = CPU.ClockSpeed;
             var result = csf.ShowDialog();
             if(result == DialogResult.OK)
@@ -583,7 +628,7 @@ namespace Lettuce
         {
             string binFile = null;
             bool littleEndian = false;
-            MemoryConfiguration mc = new MemoryConfiguration();
+            var mc = new MemoryConfiguration();
             if (mc.ShowDialog() == DialogResult.OK)
             {
                 binFile = mc.FileName;
@@ -605,7 +650,7 @@ namespace Lettuce
                             data.Add((ushort)(b | (a << 8)));
                     }
                 }
-                Lettuce.Program.CPU.FlashMemory(data.ToArray());
+                Program.CPU.FlashMemory(data.ToArray());
             }
         }
 
@@ -633,8 +678,8 @@ namespace Lettuce
             }
             Lettuce.Program.CPU.FlashMemory(data.ToArray());
             Clearlisting();
-            if (!string.IsNullOrEmpty(Lettuce.Program.lastlistingFilepath))
-                LoadOrganicListing(Lettuce.Program.lastlistingFilepath);
+            if (!string.IsNullOrEmpty(Program.lastlistingFilepath))
+                LoadOrganicListing(Program.lastlistingFilepath);
             ResetLayout();
         }
 
@@ -658,6 +703,50 @@ namespace Lettuce
         {
             var keyboardForm = new KeyboardConfiguration();
             keyboardForm.ShowDialog(this);
+        }
+
+        private void addWatchButton_Click(object sender, EventArgs e)
+        {
+            Watches.Add(watchTextBox.Text);
+            watchTextBox.Text = string.Empty;
+            ResetLayout();
+        }
+
+        private void watchTextBox_KeyUp(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Enter)
+                addWatchButton_Click(sender, e);
+        }
+
+        private void watchesContextMenuStrip_Opening(object sender, CancelEventArgs e)
+        {
+            if (watchesListView.SelectedIndices.Count == 0)
+                e.Cancel = true;
+        }
+
+        private void removeWatchToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (watchesListView.SelectedIndices.Count != 0)
+                Watches.RemoveAt(watchesListView.SelectedIndices[0]);
+            ResetLayout();
+        }
+
+        private void loadListingToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            // Load organic listing
+            var ofd = new OpenFileDialog();
+            ofd.Filter = "Listing files (*.lst)|*.lst|Text files (*.txt)|*.txt|All files (*.*)|*.*";
+            ofd.FileName = "";
+            if (ofd.ShowDialog() != DialogResult.OK)
+                return;
+            LoadOrganicListing(ofd.FileName);
+            Program.lastlistingFilepath = ofd.FileName;
+            ResetLayout();
+        }
+
+        private void checkBoxBreakOnInterrupt_CheckedChanged(object sender, EventArgs e)
+        {
+            InterruptBreakDevices[listBoxConnectedDevices.SelectedIndex] = checkBoxBreakOnInterrupt.Checked;
         }
     }
 }

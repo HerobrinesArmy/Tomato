@@ -14,8 +14,6 @@ namespace Tomato.Hardware
         public ushort InterruptMessage { get; set; }
         [Category("Device Status")]
         public ushort Frequency { get; set; }
-        [Browsable(false)]
-        public Timer Clock { get; set; }
         [Category("Device Status")]
         public ushort ElapsedTicks { get; set; }
 
@@ -46,22 +44,14 @@ namespace Tomato.Hardware
             get { return "Generic Clock (compatible)"; }
         }
 
+        private int ElapsedHardwareTicks;
+
         public override int HandleInterrupt()
         {
             switch (AttachedCPU.A)
             {
                 case 0:
                     Frequency = AttachedCPU.B;
-                    if (Frequency != 0)
-                        Clock = new Timer(Tick, null, (int)(1000 / (60d / Frequency)), Timeout.Infinite);
-                    else
-                    {
-                        if (Clock != null)
-                        {
-                            Clock.Dispose();
-                            Clock = null;
-                        }
-                    }
                     ElapsedTicks = 0;
                     break;
                 case 1:
@@ -74,32 +64,22 @@ namespace Tomato.Hardware
             return 0;
         }
 
-        public void Tick(object o)
+        public override void Tick()
         {
-            try
+            ElapsedHardwareTicks++;
+            if (ElapsedHardwareTicks >= Frequency)
             {
-                if (!AttachedCPU.IsRunning)
-                {
-                    Clock = new Timer(Tick, null, (int)(1000 / (60d / Frequency)), Timeout.Infinite);
-                    return;
-                }
+                ElapsedHardwareTicks = 0;
+                ElapsedTicks++;
                 if (InterruptMessage != 0)
                     AttachedCPU.FireInterrupt(InterruptMessage);
-                ElapsedTicks++;
-                Clock = new Timer(Tick, null, (int)(1000 / (60d / Frequency)), Timeout.Infinite);
             }
-            catch { }
+            base.Tick();
         }
 
         public override void Reset()
         {
-            if (Clock != null)
-            {
-                Clock.Dispose();
-                Clock = null;
-            }
-            ElapsedTicks = 0;
-            InterruptMessage = 0;
+            ElapsedTicks = InterruptMessage = Frequency = 0;
         }
     }
 }

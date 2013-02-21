@@ -18,6 +18,17 @@ namespace Lettuce
         private ushort wordsWide;
         private Point MouseLocation;
         public bool AsStack { get; set; }
+        public bool DisplayScrollBar 
+        {
+            get
+            {
+                return vScrollBar.Visible;
+            }
+            set
+            {
+                vScrollBar.Visible = value;
+            }
+        }
 
         public MemoryDisplay()
         {
@@ -57,6 +68,7 @@ namespace Lettuce
                 SelectedAddress -= wordsWide;
             else if (delta < 0)
                 SelectedAddress += wordsWide;
+            vScrollBar.Value = SelectedAddress / wordsWide;
             this.Invalidate();
             base.OnMouseWheel(e);
         }
@@ -71,37 +83,52 @@ namespace Lettuce
 
         private void MemoryDisplay_Paint(object sender, PaintEventArgs e)
         {
+            if (wordsWide <= 0)
+                return;
             Font font = new Font(FontFamily.GenericMonospace, 12);
             bool dark = (int)(SelectedAddress / wordsWide) % 2 == 0;
+            int Width = this.Width;
+            if (DisplayScrollBar) Width -= vScrollBar.Width;
+			
+            Size cell = TextRenderer.MeasureText("0000", font);
+            Size gutter = TextRenderer.MeasureText("0000:", font);
+			
+            Brush greyBrush = Brushes.Gray;
+            Brush blackBrush = Brushes.Black;
+            Brush blueBrush = Brushes.LightBlue;
+            Pen blackPen = Pens.Black;
+            SolidBrush lightGreyBrush = new SolidBrush(Color.FromArgb(255, 230, 230, 230));
 
             e.Graphics.FillRectangle(Brushes.White, this.ClientRectangle);
             ushort address = SelectedAddress;
-            for (int y = 0; y < this.Height; y += TextRenderer.MeasureText("0000", font).Height + 2)
+            for (int y = 0; y < this.Height; y += cell.Height + 2)
             {
                 if (dark)
-                    e.Graphics.FillRectangle(new SolidBrush(Color.FromArgb(255, 230, 230, 230)), 0, y, this.Width, TextRenderer.MeasureText("0000", font).Height);
+                    e.Graphics.FillRectangle(lightGreyBrush, 0, y, Width, cell.Height);
                 dark = !dark;
 
-                e.Graphics.DrawString(Debugger.GetHexString(address, 4) + ":", font, Brushes.Gray, 2, y);
+                e.Graphics.DrawString(Debugger.GetHexString(address, 4) + ":", font, greyBrush, 2, y);
                 wordsWide = 0;
-                for (int x = 4 + TextRenderer.MeasureText("0000:", font).Width; x < this.Width; )
+                for (int x = 4 + gutter.Width; x < Width; )
                 {
                     string value = Debugger.GetHexString(CPU.Memory[address], 4);
                     Size size = TextRenderer.MeasureText(value, font);
-                    if (x + size.Width < this.Width)
+                    if (x + size.Width < Width)
                     {
                         if (CPU.SP == address && AsStack)
-                            e.Graphics.FillRectangle(Brushes.LightBlue, new Rectangle(x, y, size.Width - 4, size.Height - 1));
+                            e.Graphics.FillRectangle(blueBrush, new Rectangle(x, y, size.Width - 4, size.Height - 1));
                         if (outlinedAddress == address && !AsStack)
-                            e.Graphics.DrawRectangle(Pens.Black, new Rectangle(x, y, size.Width - 4, size.Height - 1));
-                        e.Graphics.DrawString(value, font, Brushes.Black, x, y);
+                            e.Graphics.DrawRectangle(blackPen, new Rectangle(x, y, size.Width - 4, size.Height - 1));
+                        e.Graphics.DrawString(value, font, blackBrush, x, y);
                         address++;
                         wordsWide++;
                     }
-                    x += TextRenderer.MeasureText(value, font).Width;
+                    x += size.Width;
                 }
             }
-            e.Graphics.DrawRectangle(Pens.Black, new Rectangle(0, 0, this.Width - 1, this.Height - 1));
+            e.Graphics.DrawRectangle(blackPen, new Rectangle(0, 0, Width - 1, this.Height - 1));
+            if (wordsWide > 0)
+                vScrollBar.Maximum = 65535 / wordsWide;
         }
 
         TextBox textBox;
@@ -219,6 +246,12 @@ namespace Lettuce
             GoToAddressForm gtaf = new GoToAddressForm(SelectedAddress);
             gtaf.ShowDialog();
             SelectedAddress = gtaf.Value;
+            this.Invalidate();
+        }
+
+        private void vScrollBar_Scroll(object sender, ScrollEventArgs e)
+        {
+            SelectedAddress = (ushort)(vScrollBar.Value * wordsWide);
             this.Invalidate();
         }
     }

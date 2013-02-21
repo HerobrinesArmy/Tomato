@@ -32,6 +32,7 @@ namespace Lettuce
             this.contextMenuStrip1 = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.editValueToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.gotoAddressToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.vScrollBar = new System.Windows.Forms.VScrollBar();
             this.contextMenuStrip1.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -41,28 +42,38 @@ namespace Lettuce
             this.editValueToolStripMenuItem,
             this.gotoAddressToolStripMenuItem});
             this.contextMenuStrip1.Name = "contextMenuStrip1";
-            this.contextMenuStrip1.Size = new System.Drawing.Size(153, 70);
+            this.contextMenuStrip1.Size = new System.Drawing.Size(146, 48);
             this.contextMenuStrip1.Opening += new System.ComponentModel.CancelEventHandler(this.contextMenuStrip1_Opening);
             // 
             // editValueToolStripMenuItem
             // 
             this.editValueToolStripMenuItem.Name = "editValueToolStripMenuItem";
-            this.editValueToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.editValueToolStripMenuItem.Size = new System.Drawing.Size(145, 22);
             this.editValueToolStripMenuItem.Text = "Edit Value";
             this.editValueToolStripMenuItem.Click += new System.EventHandler(this.editValueToolStripMenuItem_Click);
             // 
             // gotoAddressToolStripMenuItem
             // 
             this.gotoAddressToolStripMenuItem.Name = "gotoAddressToolStripMenuItem";
-            this.gotoAddressToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.gotoAddressToolStripMenuItem.Size = new System.Drawing.Size(145, 22);
             this.gotoAddressToolStripMenuItem.Text = "Goto Address";
             this.gotoAddressToolStripMenuItem.Click += new System.EventHandler(this.gotoAddressToolStripMenuItem_Click);
+            // 
+            // vScrollBar
+            // 
+            this.vScrollBar.Dock = System.Windows.Forms.DockStyle.Right;
+            this.vScrollBar.Location = new System.Drawing.Point(384, 0);
+            this.vScrollBar.Name = "vScrollBar";
+            this.vScrollBar.Size = new System.Drawing.Size(17, 170);
+            this.vScrollBar.TabIndex = 1;
+            this.vScrollBar.Scroll += new System.Windows.Forms.ScrollEventHandler(this.vScrollBar_Scroll);
             // 
             // MemoryDisplay
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ContextMenuStrip = this.contextMenuStrip1;
+            this.Controls.Add(this.vScrollBar);
             this.DoubleBuffered = true;
             this.Name = "MemoryDisplay";
             this.Size = new System.Drawing.Size(401, 170);
@@ -79,6 +90,7 @@ namespace Lettuce
         private System.Windows.Forms.ContextMenuStrip contextMenuStrip1;
         private System.Windows.Forms.ToolStripMenuItem editValueToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem gotoAddressToolStripMenuItem;
+        private System.Windows.Forms.VScrollBar vScrollBar;
 
     }
 }

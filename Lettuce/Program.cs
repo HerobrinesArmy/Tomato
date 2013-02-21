@@ -11,6 +11,8 @@ using System.Reflection;
 using System.Globalization;
 using System.Drawing;
 using System.Security.Permissions;
+using System.ComponentModel;
+using System.Drawing.Design;
 
 namespace Lettuce
 {
@@ -30,6 +32,7 @@ namespace Lettuce
         
         private static System.Threading.Timer timer;
         private static Point screenLocation = new Point();
+        private static bool EnableAutomaticArrangement = true;
 
         /// <summary>
         /// The main entry point for the application.
@@ -147,6 +150,9 @@ namespace Lettuce
                                 Console.WriteLine("ID: 0x{0:X}, Name: {1}", device.DeviceID, device.GetType().Name);
                             }
                             return;
+                        case "--disable-auto-arrange":
+                            EnableAutomaticArrangement = false;
+                            break;
                         case "--help":
                             Console.WriteLine("Lettuce - a graphical debugger for DCPU-16 programs");
                             Console.WriteLine("Options:");
@@ -172,8 +178,11 @@ namespace Lettuce
             }
             if (binFile == null)
             {
-                MemoryConfiguration mc = new MemoryConfiguration();
-                if (mc.ShowDialog() == DialogResult.OK)
+                var mc = new MemoryConfiguration();
+                var result = mc.ShowDialog();
+                if (result == DialogResult.Cancel)
+                    return;
+                if (result == DialogResult.OK)
                 {
                     binFile = mc.FileName;
                     littleEndian = mc.LittleEndian;
@@ -181,11 +190,17 @@ namespace Lettuce
             }
             if (devices.Count == 0)
             {
-                HardwareConfiguration hwc = new HardwareConfiguration();
-                hwc.ShowDialog();
+                var hwc = new HardwareConfiguration();
+                var result = hwc.ShowDialog();
+                if (result == DialogResult.Cancel)
+                    return;
                 foreach (var device in hwc.SelectedDevices)
                     devices.Add(device);
             }
+            // Inject custom UITypeEditor into M35FD
+            TypeDescriptor.AddAttributes(typeof(ushort[]),
+                new EditorAttribute(typeof(M35FDTypeEditor), typeof(UITypeEditor)));
+
             if (!string.IsNullOrEmpty(binFile))
             {
                 lastbinFilepath = binFile;
@@ -211,11 +226,14 @@ namespace Lettuce
                 CPU.ConnectDevice(device);
 
             debugger = new Debugger(ref CPU);
-            debugger.StartPosition = FormStartPosition.Manual;
-            if(RuntimeInfo.IsMacOSX)
-                debugger.Location = new Point(0, 22);
-            else
-                debugger.Location = new Point(0, 0);
+            if (EnableAutomaticArrangement)
+            {
+                debugger.StartPosition = FormStartPosition.Manual;
+                if (RuntimeInfo.IsMacOSX)
+                    debugger.Location = new Point(0, 22);
+                else
+                    debugger.Location = new Point(0, 0);
+            }
             debugger.ResetLayout();
             debugger.Show();
             
@@ -248,7 +266,8 @@ namespace Lettuce
         
         static void AddWindow(DeviceHostForm window)
         {
-            window.StartPosition = FormStartPosition.Manual;
+            if (EnableAutomaticArrangement)
+                window.StartPosition = FormStartPosition.Manual;
             if (screenLocation.Y + window.Height > Screen.PrimaryScreen.WorkingArea.Height) // Wrap excessive windows
             {
                 screenLocation.Y = 25;
@@ -256,7 +275,8 @@ namespace Lettuce
             }
             if (window.OpenByDefault)
             {
-                window.Location = screenLocation;
+                if (EnableAutomaticArrangement)
+                    window.Location = screenLocation;
                 screenLocation.Y += window.Height + 12;
                 window.Show();
                 window.Invalidate();

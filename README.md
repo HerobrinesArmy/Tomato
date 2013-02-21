@@ -5,7 +5,7 @@ itself is a .NET library for emulating DCPU-16 and all official 0x10c hardware. 
 is Lettuce, a graphical debugger for DCPU-16 programs. Also included is Pickles, a text-based
 debugger for the command line. All three run on Windows, Linux, and Mac.
 
-[![Download latest version](http://i.imgur.com/cMhpN.png)](https://github.com/0x10c-crap/Tomato/downloads)
+[![Download latest version](http://i.imgur.com/cMhpN.png)](http://sircmpwn.github.com/Tomato/Lettuce.zip)
 
 ## Features
 
@@ -16,7 +16,7 @@ debugger for the command line. All three run on Windows, Linux, and Mac.
   * Generic Clock
   * SPC-2000
   * SPED-3
-  * M35FD - Experimental
+  * M35FD
 * Accurate 100 KHz timing
 * Modular - use Tomato in your own projects easily
 * Load up [Organic](https://github.com/SirCmpwn/Organic) listings for better debugging
@@ -25,9 +25,9 @@ debugger for the command line. All three run on Windows, Linux, and Mac.
 
 And many more features are included.
 
-![Lettuce](http://i.imgur.com/rIGZ2.png)
+![Lettuce](http://i.imgur.com/DHQ9jbC.png)
 
-**[Click to Enlarge](http://i.imgur.com/rIGZ2.png)**
+**[Click to Enlarge](http://i.imgur.com/DHQ9jbC.png)**
 
 ## Installation
 
@@ -52,7 +52,7 @@ Pickles is as easy as Tomato. Grab it from the
 
 ## Usage
 
-If you just want a quick emulator, grap [Lettuce](https://github.com/SirCmpwn/Tomato/downloads)
+If you just want a quick emulator, grab [Lettuce](https://github.com/SirCmpwn/Tomato/downloads)
 and run it. On Windows, double click the file. On Linux or Mac, run this:
 
     mono Lettuce.exe

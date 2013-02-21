@@ -15,7 +15,7 @@ namespace Tomato.Hardware
             LastError = M35FDErrorCode.ERROR_NONE;
         }
 
-        public ushort[] Disk { get; private set; }
+        public ushort[] Disk { get; set; }
         [Category("Disk Information")]
         public bool Writable { get; set; }
 
@@ -167,7 +167,8 @@ namespace Tomato.Hardware
                     int wordsToWrite = wordsPerTick;
                     if (wordsToWrite + wordsWritten > wordsPerSector)
                         wordsToWrite = wordsPerSector - wordsWritten;
-                    if ((wordsToWrite + fromAddress > Disk.Length) || (wordsToWrite + toAddress > AttachedCPU.Memory.Length))
+                    if ((wordsToWrite + fromAddress > Disk.Length) ||
+                        (wordsToWrite + toAddress > AttachedCPU.Memory.Length))
                     {
                         LastError = M35FDErrorCode.ERROR_BROKEN;
                         DeviceState = M35FDStateCode.STATE_READY;
@@ -195,7 +196,8 @@ namespace Tomato.Hardware
                     int wordsToWrite = wordsPerTick;
                     if (wordsToWrite + wordsWritten > wordsPerSector)
                         wordsToWrite = wordsPerSector - wordsWritten;
-                    if ((wordsToWrite + toAddress > Disk.Length) || (wordsToWrite + fromAddress > AttachedCPU.Memory.Length))
+                    if ((wordsToWrite + toAddress > Disk.Length) ||
+                        (wordsToWrite + fromAddress > AttachedCPU.Memory.Length))
                     {
                         LastError = M35FDErrorCode.ERROR_BROKEN;
                         DeviceState = M35FDStateCode.STATE_READY;

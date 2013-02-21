@@ -13,6 +13,7 @@ namespace Tomato.Hardware
         public abstract ushort Version { get; }
         public abstract string FriendlyName { get; }
         public DCPU AttachedCPU;
+        public event EventHandler InterruptFired;
 
         [Browsable(false)]
         public virtual bool SelectedByDefault
@@ -29,6 +30,13 @@ namespace Tomato.Hardware
         /// <returns></returns>
         public abstract int HandleInterrupt();
         public abstract void Reset();
+
+        public int DoInterrupt()
+        {
+            if (InterruptFired != null)
+                InterruptFired(this, null);
+            return HandleInterrupt();
+        }
 
         /// <summary>
         /// Called every 1667 cycles (roughly 60 Hz)
